@@ -254,3 +254,268 @@ quantile()、count()和idxmax()这3个函数，它们分别返回的是分位数
 
 由于上述所有函数对每一个序列进行操作后返回的结果是标量（单个值），因此它们又被称为聚合函数，它们有一个公共参数axis，默认值为0，代表逐列聚合，如果设置为1则表示逐行聚合：
 ## 频次函数
+### unique() nunique()
+pandas中有一些函数和数据中元素出现的频次相关。对Series使用unique()和nunique()可以分别得到其唯一值组成的列表和唯一值的个数：
+```python
+  In [50]:   df['School'].unique()
+
+  Out[50]:   array(['A', 'B', 'C', 'D'], dtype=object)
+
+  In [51]:   df['School'].nunique()
+
+  Out[51]:   4
+```
+### value_counts()
+  通过value_counts()可以得到序列中每个值出现的次数，当设定normalize为True时会进行归一化处理。
+```python
+  In [52]:   df['School'].value_counts()
+
+  Out[52]: D    69
+           A    57
+           C    40
+           B    34
+           Name: School, dtype: int64
+
+  In [53]:   df['School'].value_counts(normalize=True)
+
+  Out[53]: D    0.345
+           A    0.285
+           C    0.200
+           B    0.170
+           Name: School, dtype: float64
+```
+### drop_duplicates() duplicated()
+如果想要观察多个列组合的唯一值，可以使用drop_duplicates()。其中的关键参数是keep，默认值first表示保留每个组合第一次出现的所在行，指定为last表示保留每个组合最后一次出现的所在行，指定为False表示把所有组合重复的所在行剔除。
+```python
+  In [54]:   df_demo = df[['Gender','Transfer','Name']]
+           df_demo.drop_duplicates(['Gender', 'Transfer'])
+
+  Out[54]:         Gender Transfer            Name
+           0     Female        N    Gaopeng Yang
+           1       Male        N  Changqiang You
+           12    Female      NaN        Peng You
+           21      Male      NaN   Xiaopeng Shen
+           36      Male        Y    Xiaojuan Qin
+           43    Female        Y      Gaoli Feng
+
+  In [55]:   df_demo.drop_duplicates(['Gender', 'Transfer'], keep='last')
+
+  Out[55]:        Gender Transfer             Name
+           147    Male      NaN         Juan You
+           150    Male        Y    Chengpeng You
+           169  Female        Y    Chengquan Qin
+           194  Female      NaN      Yanmei Qian
+           197  Female        N   Chengqiang Chu
+           199    Male        N      Chunpeng Lv
+
+
+  #将keep指定为False意味着保留标签或标签组合中只出现过一次的行：
+  In [56]:   df_demo.drop_duplicates(['Name', 'Gender'], keep=False).head()
+
+  Out[56]:      Gender Transfer            Name
+           0  Female        N    Gaopeng Yang
+           1    Male        N  Changqiang You
+           2    Male        N         Mei Sun
+           4    Male        N     Gaojuan You
+           5  Female        N     Xiaoli Qian
+
+
+ #我们在Series上也可以使用drop_duplicates()：
+  In [57]:   df['School'].drop_duplicates()
+
+  Out[57]:   0    A
+           1    B
+           3    C
+           5    D
+           Name: School, dtype: object
+```
+
+  duplicated()和drop_duplicates()的功能类似，但前者返回关于元素是否为唯一值的布尔列表，而其参数keep的意义与后者一致。duplicated()返回的序列把重复元素设为True，否则为False，drop_duplicates()等价于把duplicated()返回为True的对应行剔除。
+  ```python
+  In [58]:   df_demo.duplicated(['Gender', 'Transfer']).head()
+
+  Out[58]:   0    False
+           1    False
+           2     True
+           3     True
+           4     True
+           dtype: bool
+
+  In [59]:   df['School'].duplicated().head()
+
+  Out[59]:   0   False
+           1   False
+           2    True
+           3   False
+           4    True
+           Name: School, dtype: bool
+```
+## 替换函数
+### replace()
+在replace()中，可以通过字典构造或者传入两个列表（分别表示需要替换的值和替换后的值）来进行替换：
+```python
+  In [60]:   df['Gender'].replace({'Female':0, 'Male':1}).head()
+
+  Out[60]:   0    0
+           1    1
+           2    1
+           3    0
+           4    1
+           Name: Gender, dtype: int64
+
+  In [61]:   df['Gender'].replace(['Female', 'Male'], [0, 1]).head()
+
+  Out[61]:   0    0
+           1    1
+           2    1
+           3    0
+           4    1
+           Name: Gender, dtype: int64
+```
+另外，replace()还可以进行一种特殊的方向替换，指定参数method为ffill时，用前面一个最近的未被替换的值进行替换，参数method为bfill时，则用后面最近的未被替换的值进行替换。从下面的例子可以看到，它们的结果是不同的：
+```python
+  In [62]:   s = pd.Series(['a', 1, 'b', 2, 1, 1, 'a'])
+           s.replace([1, 2], method='ffill')
+
+  Out[62]:   0    a
+           1    a
+           2    b
+           3    b
+           4    b
+           5    b
+           6    a
+           dtype: object
+
+  In [63]:   s.replace([1, 2], method='bfill')
+
+  Out[63]:   0    a
+           1    b
+           2    b
+           3    a
+           4    a
+           5    a
+           6    a
+           dtype: object
+```
+### where() mask()
+where()在传入条件为False的对应行进行替换，而mask()在传入条件为True的对应行进行替换，当未对二者指定替换值时，将对应行替换为缺失值。
+```python
+  In [64]:   s = pd.Series([-1, 1.2345, 100, -50])
+           s.where(s<0)
+
+  Out[64]:   0     -1.0
+           1      NaN
+           2      NaN
+           3    -50.0
+           dtype: float64
+
+  In [65]:   s.where(s<0, 100)
+
+  Out[65]:   0     -1.0
+           1    100.0
+           2    100.0
+           3    -50.0
+           dtype: float64
+
+  In [66]:   s.mask(s<0)
+
+  Out[66]:   0         NaN
+           1      1.2345
+           2    100.0000
+           3         NaN
+           dtype: float64
+
+  In [67]:   s.mask(s<0, -50)
+
+  Out[67]:   0    -50.0000
+           1      1.2345
+           2    100.0000
+           3    -50.0000
+           dtype: float64
+```
+需要注意的是，传入的条件只需要是布尔序列即可，但其索引应当与被调用的Series索引一致：
+```python
+  In [68]:   s_condition= pd.Series([True,False,False,True],index=s.index)
+           s.mask(s_condition, -50)
+
+  Out[68]:   0    -50.0000
+           1      1.2345
+           2    100.0000
+           3    -50.0000
+           dtype: float64
+```
+### round() abs() clip()
+它们分别表示按照给定精度四舍五入、取绝对值和截断：
+```python
+  In [69]:   s = pd.Series([-1, 1.2345, 100, -50])
+           s.round(2)
+
+  Out[69]:   0     -1.00
+           1      1.23
+           2    100.00
+           3    -50.00
+           dtype: float64
+
+  In [70]:   s.abs()
+
+  Out[70]:   0    1.0000
+           1    1.2345
+           2  100.0000
+           3   50.0000
+           dtype: float64
+
+  In [71]:   s.clip(0, 2) # 前两个数分别表示上下截断边界
+
+  Out[71]:   0    0.0000
+           1    1.2345
+           2    2.0000
+           3    0.0000
+           dtype: float64
+```
+### sort_values() sort_index()
+值排序函数sort_values()
+默认参数ascending为True表示升序，对身高进行排序,当ascending为False时表示对身高进行降序排列
+```python
+In [73]:   df_demo.sort_values('Height').head()
+
+In [74]:   df_demo.sort_values('Height', ascending=False).head()
+```
+
+多列排序：在体重相同的情况下，对身高进行排序，并且保持身高降序排列，体重升序排列
+```python
+In [75]:   df_demo.sort_values(['Weight','Height'],ascending=[True,False]).head()
+
+```
+索引排序函数sort_index()
+索引排序的用法和值排序几乎完全一致，只不过元素的值在索引中，此时需要指定索引层的名字或者层号，用参数level表示。
+```python
+In [76]:   # 对年级按升序排列，对名字按降序排列,grade,name为索引
+           df_demo.sort_index(level=['Grade','Name'],ascending=[True,False]).head()
+```
+### rank()
+返回每个元素在整个序列中的排名，参数ascending表示升序排序，pct表示是否返回元素对应的分位数。
+```python
+  In [77]:   s = pd.Series(list("ebcad")) 
+           s.rank(ascending=True, pct=False)
+
+  Out[77]:   0  5.0
+           1  2.0
+           2  3.0
+           3  1.0
+           4  4.0
+           dtype: float64
+```
+参数method用于控制元素相等时的排名处理方式，默认为“average”，取均值。取“min”和“max”时分别表示取最小的可能排名和最大的可能排名，取“first”时表示按照序列中元素出现的先后顺序排名，取“dense”时表示相邻大小的元素排名相差1。从下面的例子中可以看出它们的区别：
+```python
+  In [78]:   s = pd.Series(list("abac"))
+           df_rank = pd.DataFrame()
+           for method in ["average", "min", "max", "first", "dense"]:
+               df_rank[method] = s.rank(method=method)
+           df_rank
+
+  Out[78]:       average       min       max     first     dense
+           0       1.5       1.0       2.0       1.0       1.0
+           1       3.0       3.0       3.0       3.0       2.0
+           2       1.5       1.0       2.0       2.0       1.0
+           3       4.0       4.0       4.0       4.0       3.0
+```
